@@ -1,0 +1,95 @@
+var xPtr = 0;
+var yPtr = 0;
+
+var updateLocation = function(mag) {
+    xPtr = parseInt(mag.css("left"));
+    yPtr = parseInt(mag.css("top"));
+    var serialCmd = '?';
+    $.ajax({
+	    url: 'efridge.cgi',
+		data:{'op':'mov','oid':new String(mag.get(0).id).substr(4),'x':xPtr,'y':yPtr},
+	    dataType: 'script'
+	});
+    xPtr += 10;
+};
+
+var placeObjects = function(objs) {
+    /* incoming is array of */
+    $.each(objs, function(obj) {
+	    var $mag = $("#btn-"+obj[0]);
+	    if ($mag.length == 0) {
+		/* new one needed */
+		$("#door").append(
+				  $("<span/>").addClass("magnet")
+				  .attr("id", 'btn-'+obj[0])
+				  .html(obj[1])
+				  .css("cursor", "crosshair")
+				  .css("left", obj[3])
+				  .css("top", obj[4])
+				  .css("color", obj[2])
+				  .draggable({
+					  stop: function() {
+					      updateLocation($("#btn-"+obj[0]));
+					  }
+				      })
+				  );
+	    } else {
+		/* update position */
+		$mag.css("left", obj[3]).css("top",obj[4]);
+	    }
+	});
+};
+
+var getObjects = function() {
+    $.ajax({
+	    url: 'efridge.cgi',
+	    data: { 'op': 'get' },
+	    dataType: 'script'
+	});
+};
+
+var genObject = function(letter) {
+    $.ajax({
+	    url: 'efridge.cgi',
+	    data: {'op':'gen','letter':letter,'x':xPtr,'y':yPtr},
+	    error: function() {alert('Segmentation fault') },
+	    dataType: "script"
+	});
+    xPtr += 10;
+};
+
+var pollChange = function() {
+    /* this should block until next change comes */
+    $.ajax({
+	    url: 'efridge.cgi',
+	    data: {'op':'poll'},
+	    /* upon completion (error or success),
+	       repeat */
+	    complete: function() { pollChange(); }
+	});
+};
+
+var deleteObject = function() {
+    
+};
+
+
+$(function() {
+	/* main service routine */
+	letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	/* create generator buttons */
+	for (i=0;i<letters.length;i++) {
+	    $("#letter-gen-buttons").append(
+					    $("<span/>").addClass("gen-btn")
+					    .html(letters.charAt(i))
+					    .click(function() {
+						    genObject($(this).text());
+				
+						})
+					    );
+	}
+	/* initially retrieve objects without blocking */
+	getObjects();
+	/* repeatedly poll for changes */
+	pollChange();
+    });

@@ -1,0 +1,27 @@
+<html>
+  <head>
+    <title>Lodestone</title>
+  </head>
+  <link href="css/lodestone.css" rel="stylesheet" type="text/css" />
+  <script language="javascript" src="js/jquery-1.4.2.min.js"></script>
+  <script language="javascript" src="js/jquery.rightClick.js"></script>
+  <script language="javascript" src="js/jquery-ui-1.8.custom.min.js"></script>
+  <script language="javascript" src="js/lodestone.js"></script>
+
+  <body>
+    <h3>Lodestone</h3>
+    <div>To place a new magnet, click a button below.  To move a magnet, click and drag it.
+      To delete an existing magnet, use the right mouse button.  Changes are saved
+      and propogated automatically.</div>
+    <hr/>
+    <div id="letter-gen-buttons"><span>New Magnet:</span>
+      <span style="text-align:right;float:right;">
+	<input type="button" onclick="if(confirm('Really nuke it?')){nukeDatabase();}"
+	       value="Nuke Database"/>
+      </div>
+    </div>
+    <hr/>
+    <div id="door">
+    </div>
+  </body>
+</html>
