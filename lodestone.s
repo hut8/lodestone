@@ -1,7 +1,7 @@
-;;; efridge - x86 asm/javascript refrigerator door emulator
+;;; lodestone - x86 asm/javascript refrigerator door emulator
 
-%include "nasmx.inc"		
-%include "libc.inc"	
+%include "nasmx.inc"
+%include "libc.inc"
 %include "syscall.inc"
 	;; libc externals
 	extern printf
@@ -15,12 +15,12 @@
 ;;; ;;;; ;;;
 ;;; DATA ;;;
 ;;; ;;;; ;;;
-	
+
 	SECTION .data
 	;; Query string
 qs_env:		db "QUERY_STRING="
 qs_env_l:	equ $-qs_env
-	
+
 	;; Content-type HTTP headers
 contenttype_html:	db "Content-type: text/html",13,10,13,10
 contenttype_html_l:	equ $-contenttype_html
@@ -31,14 +31,14 @@ invoke_logmsg:	db "efridge invoked with [%s]",10,0
 	;; Javascript templates
 obj_up_fmt_s:	db "renderMagnets([",0
 comma_fmt:	db ",",0
-obj_up_fmt_e:	db "]);",0	
+obj_up_fmt_e:	db "]);",0
 	;; serial: hex 4-byte object id, 1-byte letter, 3-byte color, 2-byte x, 2-byte y
 obj_ser_fmt:	db "[%d,'%c','#%02hx%02hx%02hx',%hd,%hd]",0
 	;; move: object_id, new_x, new_y
 obj_mov_fmt:	db "M(%d,%d,%d)",0
 	;; deserial: character, r, g, b, x, y
 obj_deser_fmt:	db "P(%c,%hd,%hd,%hd,%hd,%hd)",0
-obj_del_fmt:	db "D(%d)",0	
+obj_del_fmt:	db "D(%d)",0
 	;; Filenames (NULL TERMINATED)
 page_fn:	db "efridge.html",0
 data_fn:	db "efridge.db",0
@@ -70,7 +70,7 @@ blank_obj:	dd 0xffffffff
 SECTION .bss
 objdb:	resb 0x2000		; The entire object database (1024*8 bytes)
 working_filename:	resd 0x1 ; pointer to argv[0]
-	
+
 ;;; ;;;; ;;;
 ;;; CODE ;;;
 ;;; ;;;; ;;;
@@ -87,7 +87,7 @@ main:
 	;; main() locals:
 	;;   ebp-4 = pointer to query_string
 	sub esp, 4
-	
+
 ;;; Find query string in environment variables
 ienv:				; iterate to next environment var
 	mov eax, [ebx]		; load char *ebx into eax for testing
@@ -100,7 +100,7 @@ ienv:				; iterate to next environment var
 	jz proc_qs		; process query string
 
 	;; missed it, next try!
-	add ebx, 4		; go to next env variable	
+	add ebx, 4		; go to next env variable
 	jmp ienv		; loop
 proc_qs:
 	mov eax, [ebx]		; char *eax = *ebx         (ebx was char**)
@@ -114,7 +114,7 @@ proc_qs:
 	mov eax, dword[ebp-4]	; load pointer to query string
 	mov eax, dword[eax]	; dereference pointer, loading first four characters
 	and eax, 0xff		; only consider first character (function name)
-	
+
 	test eax, eax		; is there no query string? (null terminator at first character)
 	jz render_html		; render regular html page
 
@@ -125,7 +125,7 @@ proc_qs:
 	;; Get magnets
 	cmp eax, 0x47		; test G
 	je ._render_objects
-	
+
 	;; Place new magnet
 	cmp eax, 0x50		; test P
 	je ._place_object	; make a new magnet
@@ -147,12 +147,12 @@ proc_qs:
 ._notify_change:
 	invoke condition_wait	; wait to be signaled
 	jmp ._render_objects	; then render
-	
+
 ._render_objects:
 	invoke load_database	; load all objects into memory
 	invoke render_objects	; serialize to client
 	jmp exit
-	
+
 ._place_object:
 	invoke load_database		     ; load all objects into memory
 	invoke place_object, dword[ebp-4] ; generate object based on query string
@@ -196,7 +196,7 @@ render_html:
 	sub esp, 2048+4
 	mov dword[ebp-8], ebp
 	sub dword[ebp-8], 2048
-	
+
 	syscall read, dword[ebp-4], dword[ebp-8], dword 2048
 	test eax, eax
 	js .read_fail
@@ -212,7 +212,7 @@ render_html:
 .read_fail:
 	pop ebx
 	invoke printf, err_io_r_msg, eax
-	jmp exit	
+	jmp exit
 .write_fail:
 	invoke printf, err_io_w_msg, eax
 	jmp exit
@@ -222,7 +222,7 @@ render_objects:
 	push ebp		; save old base pointer
 	mov ebp, esp		; establish new stack frame
 	;; Stack
-	;;   [ebp-4] = address of end of objdb	
+	;;   [ebp-4] = address of end of objdb
 	sub esp, 4
 
 	syscall write, STDOUT_FILENO, contenttype_js, contenttype_js_l ; render Content-type header
@@ -251,7 +251,7 @@ render_objects:
 	invoke printf, comma_fmt
 	pop ecx
 	pop eax
-	
+
 	;; render a single object
 ._render_object:
 	;; begin constructing printf data
@@ -263,7 +263,7 @@ render_objects:
 
 	movzx ebx, word [eax+4] ; load coordinate record into register
 	push ebx		; coordinate integer (shorts)
-	
+
 	movzx ebx, byte [eax+3]	; load color 'B' byte as short
 	push ebx		; push short onto stack
 
@@ -284,11 +284,11 @@ render_objects:
 	pop ecx			; unclobber counter
 	pop eax			; unclobber address
 
-._next_record:	
+._next_record:
 	inc ecx			; object id now increased
 	add eax, 8 		; move to next object
 	jmp ._render_core	; loop
-	
+
 ._end_render_objects:
 	invoke printf, obj_up_fmt_e
 	mov esp, ebp
@@ -304,7 +304,7 @@ move_object:
 	;;   [ebp-12]= object id
 	sub esp, 12
 
-	;; parse input string	
+	;; parse input string
 	lea eax, [ebp-4]	; load pointer to ebp-4
 	push eax		; move to stack
 	lea eax, [ebp-8]	; load pointer to ebp-8
@@ -330,7 +330,7 @@ move_object:
 
 	invoke commit_database	; save results
 	invoke render_objects	; show changes
-	
+
 	jmp ._mov_end		; jump over errors
 ._mov_parse_err:
 	invoke printf, errmsg_deser_err
@@ -341,7 +341,7 @@ move_object:
 	mov esp, ebp
 	pop ebp
 	ret
-	
+
 place_object:
 	push ebp		; save old base pointer
 	mov ebp, esp		; establish new stack frame
@@ -353,7 +353,7 @@ place_object:
 	;;   [ebp-20] = r
 	;;   [ebp-24] = %c
 	sub esp, 24
-	
+
 	mov esi, objdb		; esi = &objdb
 	mov edi, objdb		; edi = &objdb
 	add edi, 0x2000		; edi += 8192 (1024 8 byte records)
@@ -365,10 +365,10 @@ place_object:
 	mov eax, [esi]		; load our record
 	mov ebx, eax		; copy for checking
 	and ebx, 0xff000000	; only consider high bit
-	
+
 	cmp ebx, 0xff000000	; ff magic number for 'no object here'
 	je ._fill_null		; found it!
-	
+
 	add esi, 8		; next record
 	jmp ._find_null_obj
 ._fill_null:
@@ -419,18 +419,18 @@ place_object:
 	pop eax			; delicious cake
 	movzx eax, byte[eax]	; dereference B
 	mov byte[esi+3], al	; put the color in the database
-	
+
 	pop eax
 	movzx eax, word[eax] 	; dereference Y
 	mov word[esi+4], ax	; put y coordinate in database
 
 	pop eax
 	movzx eax, word[eax] 	; dereference X
-	mov word[esi+6], ax	; put X coordinate in database	
+	mov word[esi+6], ax	; put X coordinate in database
 
 	;; save
 	invoke commit_database
-	
+
 	jmp ._end_generate_object ; skip over errors
 ._deser_fmt_err:
 	add esp, 32
@@ -472,7 +472,7 @@ delete_object:
 	mov esp, ebp
 	pop ebp
 	ret
-	
+
 invalid_op:
 	invoke printf, err_invop_msg
 	jmp exit
@@ -484,7 +484,7 @@ invalid_op:
 
 ;;; Initially create blank database
 ;;; Overwrites corrupt database as well
-	
+
 init_db:
 	push ebp
 	mov ebp, esp
@@ -497,7 +497,7 @@ init_db:
 	js ._init_db_error
 
 	mov [ebp-4], eax
-	
+
 	;; Allocate 1024 blank pairs
 	;; 1 B - letter, 3 B - RGB color, 2 B X coord, 2 B Y coord)
 	mov ecx, 1024
@@ -513,7 +513,7 @@ init_db:
 	js ._init_db_error_w
 
 	dec ecx
-	jmp ._writecycle	
+	jmp ._writecycle
 ._init_db_error:
 	invoke printf, errmsg_db, eax
 	jmp ._end_init_db
@@ -525,10 +525,10 @@ init_db:
 	mov esp, ebp
 	pop ebp
 	ret
-	
+
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Loads all data into objdb in .bss ;;;
-;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;	
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 load_database:
 	push ebp
 	mov ebp, esp
@@ -545,7 +545,7 @@ load_database:
 
 	;; initialize loop data
 	mov dword[ebp-8], objdb	; offset from start of objdb
-	mov ecx, 0x2000		; total size = 8192 bytes	
+	mov ecx, 0x2000		; total size = 8192 bytes
 	;; copy contents of file into objdb
 ._load_db_read_cycle:
 	push ecx
@@ -619,7 +619,7 @@ commit_database:
 ;;; ;;;;;;;;;;;;;;;;;;;; ;;;
 page_err:
 	syscall write, STDOUT_FILENO, filefailmsg, filefailmsg_l
-exit:	
+exit:
 	;; Take down our stack frame
 	mov esp, ebp
 	pop ebp
